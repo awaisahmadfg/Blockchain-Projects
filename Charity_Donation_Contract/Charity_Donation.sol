@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
-// 98086212
-// 2085903
+
 
 contract Charity {
     event CampaignStarted(bytes32 campaignId, address initiator);
@@ -51,6 +50,7 @@ contract Charity {
     mapping(address => mapping(bytes32 => uint256)) public userCampaignDonations;
 
     function generateCampaignId(string calldata title,string calldata description) public pure returns (bytes32) {
+        require(bytes(title).length !=0 && bytes(description).length !=0, "Title and description are required");
         bytes32 campaignId = keccak256(abi.encodePacked(title, description));
         return campaignId;
     }
@@ -76,6 +76,8 @@ contract Charity {
     }
 
     function endCampaign(bytes32 campaignId) public whenNotPaused onlyInitiator(campaignId){
+        require(campaignId != bytes32(0), "Invalid campaignId");
+
         Campaign storage campaign = _campaigns[campaignId];
 
         // require the campaign is alive
@@ -89,7 +91,8 @@ contract Charity {
 
       // allows users to donate to a charity campaign of their choice
     function donateToCampaign(bytes32 campaignId) public whenNotPaused payable {
-        
+        require(campaignId != bytes32(0), "Invalid campaignId");
+
         // get campaign details with the given campaign
         Campaign storage campaign = _campaigns[campaignId];
 
@@ -119,6 +122,8 @@ contract Charity {
     }
 
     function refundDonation (bytes32 campaignId) public whenNotPaused {
+        require(campaignId != bytes32(0), "Invalid campaignId");
+
         // Campaign storage campaign = _campaigns[campaignId];
         Campaign storage campaign = _campaigns[campaignId];
         
@@ -150,6 +155,7 @@ contract Charity {
     }
 
     function withdrawCampaignFunds(bytes32 campaignId) public whenNotPaused onlyInitiator(campaignId) payable{
+        require(campaignId != bytes32(0), "Invalid campaignId");
         Campaign storage campaign = _campaigns[campaignId];
         require(!campaign.isLive, "Campaign is still active");
         require(block.timestamp > campaign.deadline,"Campaign is still active");
