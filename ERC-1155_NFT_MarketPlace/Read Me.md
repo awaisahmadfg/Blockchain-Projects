@@ -1,2 +1,26 @@
+# NFT marketplace
 
-Both are the Audited ERCC-1155 NFT Marketplace contracts having Royalties Functionality.
+This project is developed in Web3 app with ether, hardhat, Next.js, tailwind css, web3modal, @nomiclabs, Solidity
+
+Users can mint NFTs with this web3 app. A user can see all of the NFts available on the market and buy them.
+
+## Major Functionalities: 
+- Mint NFT Smart Contract
+- Market Smart Contract:
+- sell NFTs Smart Contract
+- buy NFTs Smart Contract
+
+## Getting started
+Follow these steps to run this project in your local computer.
+1. Clone Repository
+```
+git clone https://github.com/sb011/NFT-marketplace.git
+```
+2. To Start project
+```
+npm run dev
+```
+3. To get metamask account for development
+```
+npx hardhat node
+```
