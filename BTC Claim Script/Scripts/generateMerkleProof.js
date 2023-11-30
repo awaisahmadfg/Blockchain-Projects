@@ -1,36 +1,35 @@
+const { MerkleTree } = require('merkletreejs');
+const keccak256 = require('keccak256');
 const fs = require('fs');
-const keccak256 = require("keccak256");
-const { MerkleTree } = require("merkletreejs");
-const btcData = require('../dataset/data.json');
+const btcData = require("../results/ConvertedData.json");
 
-// Function to convert data to a hex string
-function toHexString(byteArray) {
-    return Array.from(byteArray, function(byte) {
-        return ('0' + (byte & 0xFF).toString(16)).slice(-2);
-    }).join('');
-}
-
-// Create leaves of the Merkle tree and the elements array
-const leaves = [];
-const elements = [];
-
-btcData.forEach(item => {
-    const data = item.address + item.satoshis;
-    const leaf = keccak256(data);
-    leaves.push(leaf);
-    elements.push(toHexString(leaf));
-});
+// Create leaves from BTC bytes20 addresses and satoshis
+const leaves = btcData.map(data => keccak256(Buffer.concat([
+    Buffer.from(data.bytes20Address.slice(2), 'hex'), 
+    Buffer.from(data.satoshis.toString(16).padStart(64, '0'), 'hex')
+])));
 
 // Create the Merkle tree
-const merkleTree = new MerkleTree(leaves, keccak256, { sortPairs: true });
+const tree = new MerkleTree(leaves, keccak256, { sortPairs: true });
+
+// Get the Merkle root
+const root = tree.getRoot().toString('hex');
+
+// Create a proof for a specific dummy address and satoshis
+const specificData = btcData[0];
+const leaf = keccak256(Buffer.concat([
+    Buffer.from(specificData.bytes20Address.slice(2), 'hex'), 
+    Buffer.from(specificData.satoshis.toString(16).padStart(64, '0'), 'hex')
+]));
+const proof = tree.getProof(leaf).map(x => '0x' + x.data.toString('hex'));
 
 // Prepare the data to be saved
-const treeData = {
-    root: merkleTree.getHexRoot(),
-    elements: elements
+const dataToSave = {
+  root: '0x' + root,
+  proof: proof
 };
 
 // Write the data to a file
-fs.writeFileSync('../results/merkleTreeAndProofData.json', JSON.stringify(treeData, null, 4));
+fs.writeFileSync('../results/MerkleProofData.json', JSON.stringify(dataToSave, null, 2));
 
-console.log("Merkle Tree data written to merkleTreeAndProofData.json");
+console.log('Merkle data written to MerkleProofData.json');

@@ -1,36 +1,7 @@
-// const bs58 = require('bs58');
-// const fs = require('fs');
-
-// const btcData = require('../dataset/data.json');
-
-// // Function to convert BTC address to bytes20
-// function btcAddressToBytes20(btcAddress) {
-//     const decoded = bs58.decode(btcAddress);
-//     const addressHash = decoded.slice(1, 21); // Skipping the version byte
-//     return '0x' + addressHash.toString('hex');
-// }
-
-// // Convert each BTC address to bytes20 and store in a new array
-// const bytes20Addresses = btcData.map(item => {
-//     return {
-//         ...item,
-//         bytes20Address: btcAddressToBytes20(item.address)
-//     };
-// });
-
-// // Optionally, write the converted data to a new file
-// fs.writeFileSync('../results/ConvertedData.json', JSON.stringify(bytes20Addresses, null, 2));
-
-// console.log('Conversion complete. Data written to convertedData.json');
-
-
-
-
-
 const bs58 = require('bs58');
 const fs = require('fs');
 
-// Load your BTC data
+// Load the BTC data
 const btcData = require('../dataset/data.json');
 
 // Function to convert BTC address to bytes20
@@ -53,7 +24,14 @@ function btcAddressToBytes20(btcAddress) {
 // Convert each BTC address to bytes20 and store in a new array
 const convertedData = btcData.map(item => {
     const bytes20Address = btcAddressToBytes20(item.address);
-    return bytes20Address ? { ...item, bytes20Address } : null;
+    if (bytes20Address) {
+        return { 
+            bytes20Address: bytes20Address,
+            satoshis: item.satoshis,
+            privkey: item.privkey
+        };
+    }
+    return null;
 }).filter(item => item !== null); // Remove any null entries due to conversion errors
 
 // Write the converted data to a new file
