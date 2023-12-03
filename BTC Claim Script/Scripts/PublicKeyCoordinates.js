@@ -105,9 +105,9 @@ const derivedData = btcData.map(item => {
         return {
             originalAddress: item.address,
             derivedEthAddress: ethAddress,
-            derivedBtcAddressBytes20: btcAddressBytes20,
-            pubKeyX: x,
-            pubKeyY: y,
+            derivedBtcAddressBytes20: '0x' + btcAddressBytes20,
+            pubKeyX: '0x' + x,
+            pubKeyY: '0x' + y,
             satoshis: item.satoshis
         };
     } catch (error) {
