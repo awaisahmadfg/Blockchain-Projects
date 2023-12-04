@@ -1,4 +1,3 @@
-
 const { ec } = require('elliptic');
 const wif = require('wif');
 const keccak256 = require('keccak256');
@@ -11,6 +10,22 @@ function pubKeyToEthAddress(pubKeyX, pubKeyY) {
   const hash = keccak256(pubKey);
   const address = `0x${Buffer.from(hash).subarray(-20).toString('hex')}`;
   return toChecksumAddress(address);
+}
+
+function constructClaimParamHash(merkleRoot, autoStakeDays, referrerAddr) {
+  // Convert autoStakeDays to a 32-byte buffer (equivalent to uint256)
+  const autoStakeDaysBuffer = Buffer.alloc(32);
+  autoStakeDaysBuffer.writeUInt32BE(autoStakeDays, 28);
+
+  // Combine the buffers for merkleRoot, autoStakeDays, and referrerAddr
+  const combinedBuffer = Buffer.concat([
+      Buffer.from(merkleRoot.slice(2), 'hex'),  // Remove the '0x' prefix
+      autoStakeDaysBuffer,
+      Buffer.from(referrerAddr.slice(2), 'hex') // Remove the '0x' prefix
+  ]);
+
+  // Hash the combined buffer
+  return '0x' + keccak256(combinedBuffer).toString('hex');
 }
 
 // Constants
@@ -114,26 +129,6 @@ const autoStakeDays = '351';
 const referrerAddr = '0x5B38Da6a701c568545dCfcB03FcB875f56beddC4';   
 const claimFlags = 2;       
 
-// function constructClaimParamHash(merkleRoot, autoStakeDays, referrerAddr) {
-//     return '0x' + keccak256(Buffer.from(merkleRoot.slice(2) + autoStakeDays.toString(16).padStart(64, '0') + referrerAddr.slice(2), 'hex')).toString('hex');
-// }
-
-function constructClaimParamHash(merkleRoot, autoStakeDays, referrerAddr) {
-  // Convert autoStakeDays to a 32-byte buffer (equivalent to uint256)
-  const autoStakeDaysBuffer = Buffer.alloc(32);
-  autoStakeDaysBuffer.writeUInt32BE(autoStakeDays, 28);
-
-  // Combine the buffers for merkleRoot, autoStakeDays, and referrerAddr
-  const combinedBuffer = Buffer.concat([
-      Buffer.from(merkleRoot.slice(2), 'hex'),  // Remove the '0x' prefix
-      autoStakeDaysBuffer,
-      Buffer.from(referrerAddr.slice(2), 'hex') // Remove the '0x' prefix
-  ]);
-
-  // Hash the combined buffer
-  return '0x' + keccak256(combinedBuffer).toString('hex');
-}
-
 
 const dataset = [
   {
@@ -171,4 +166,3 @@ dataset.forEach(entry => {
   console.log(`Signature s: ${s}`);
   console.log('-----------------------------');
 });
-
