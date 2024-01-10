@@ -10,7 +10,7 @@ def timestamp_to_local_date(timestamp, local_tz):
     local_time = utc_time.astimezone(local_tz)
     return local_time.date()
 
-# Function to fetch block information
+# Function to fetch block information using blockchain.info API
 def get_block_info(block_height):
     api_endpoint = f"https://blockchain.info/block-height/{block_height}?format=json"
     response = requests.get(api_endpoint)
@@ -19,29 +19,24 @@ def get_block_info(block_height):
     else:
         return None
 
-def fetch_transactions_for_block_btc_com(block_hash):
-    transactions = []
-    page = 0
-    while True:
-        url = f"https://chain.api.btc.com/v3/block/{block_hash}/tx?page={page}"
-        response = requests.get(url)
-        if response.status_code == 200:
-            try:
-                data = response.json().get('data', {})
-                transactions.extend(data.get('list', []))
-                if page >= data.get('total_page', 0) - 1:
-                    break
-                page += 1
-            except ValueError:
-                print("Error decoding JSON")
-                break
-        else:
-            print(f"Failed to fetch transactions for block {block_hash}, status code: {response.status_code}")
-            break
-    return transactions
+# Function to fetch transactions for a block using Blockchair API
+def fetch_transactions_for_block_blockchair(block_hash):
+    url = f"https://api.blockchair.com/bitcoin/raw/block/{block_hash}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        try:
+            data = response.json().get('data', {})
+            block_data = data.get(block_hash, {}).get('decoded_raw_block', {})
+            transactions = block_data.get('tx', [])
+            return transactions
+        except ValueError:
+            print("Error decoding JSON")
+            return []
+    else:
+        print(f"Failed to fetch transactions for block {block_hash}, status code: {response.status_code}")
+        return []
 
-
-# Starting block height (last block of the day on December 23, 2023)
+# Starting block height (example: last block of the day on December 23, 2023)
 start_block_height = 822434
 
 # Initialize variables
@@ -49,14 +44,12 @@ current_block_height = start_block_height
 target_date = datetime.date(2023, 12, 22)
 local_tz = pytz.timezone('Asia/Karachi')
 
-# Initialize a list to store the transaction data
 transaction_data = []
 
 # Traverse blocks in reverse
 while True:
     block_info = get_block_info(current_block_height)
     if not block_info:
-        print(f"Failed to fetch data for block height: {current_block_height}")
         break
 
     block_timestamp = block_info['blocks'][0]['time']
@@ -66,15 +59,15 @@ while True:
         break
     elif block_date == target_date:
         block_hash = block_info['blocks'][0]['hash']
-        transactions = fetch_transactions_for_block_btc_com(block_hash)
-        for tx in transactions:
-            txid = tx['hash']
-            for output in tx['outputs']:
-                for address in output.get('addresses', []):
-                    amount = output['value'] / 100000000  # Convert from satoshi to BTC
-                    transaction_data.append([current_block_height, block_hash, txid, address, amount])
+        transactions = fetch_transactions_for_block_blockchair(block_hash)
+        for txid in transactions:
+            transaction_data.append([current_block_height, block_hash, txid])
 
     current_block_height -= 1
 
-# Create a DataFrame from the collected data
-df = pd.DataFrame(transaction_data, columns=['Block Height', 'Block Hash', 'Transaction ID', 'Address', 'Amount (BTC)'])
+# Create a DataFrame from the collected transaction data
+df = pd.DataFrame(transaction_data, columns=['Block Height', 'Block Hash', 'Transaction ID'])
+
+# Displaying DataFrame without the first record
+pd.set_option('display.max_rows', None)
+display(df.iloc[1:])
