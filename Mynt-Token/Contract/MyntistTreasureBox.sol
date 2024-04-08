@@ -6,20 +6,19 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
-import "hardhat/console.sol";
 
 contract MyntistTreasureBox {
 
     /* ============== State Variables ============= */
     IGlobals private GlobalsInstance;
     uint256 private constant MAX_DEPOSIT = 100 ether;
-    uint256 internal constant ANNUAL_INTEREST_SCALE = 1e8;
+    uint256 private constant ANNUAL_INTEREST_SCALE = 1e8;
     uint256 private constant ANNUAL_INTEREST_PERCENT = 10;
-    uint256 public constant DAILY_INTEREST_RATE = (ANNUAL_INTEREST_PERCENT * ANNUAL_INTEREST_SCALE) / 365;
+    uint256 private constant DAILY_INTEREST_RATE = (ANNUAL_INTEREST_PERCENT * ANNUAL_INTEREST_SCALE) / 365;
     uint256 private constant MIN_CREATION_DAYS = 1 days;
     uint256 private constant MAX_CREATION_DAYS = 729 days;
 
-    address private walletAddress;
+    address private immutable walletAddress;
     uint256 private nonFlushableAmount;
    
     using Counters for Counters.Counter;
@@ -44,8 +43,6 @@ contract MyntistTreasureBox {
 
     /* ================== Mappings =============== */
     mapping(uint256 => TreasureBox) public treasureBoxes;
-    // mapping(uint256 => mapping(uint256 => NftInfo)) public nftInfoMap;
-    
     mapping(uint256 => NftInfo[]) public nftInfoMap;
     mapping(uint256 => mapping(uint256 => uint256)) public rewards; 
     mapping(address => mapping(uint256 => bool)) private nftUsed;
@@ -68,7 +65,7 @@ contract MyntistTreasureBox {
 
     event TreasureBoxFunded(
         address indexed funder,
-        address creator,
+        uint256 boxId,
         uint256 amount,
         uint256 fundedAt
     );
@@ -120,10 +117,10 @@ contract MyntistTreasureBox {
         require(_claimDate >= block.timestamp + MIN_CREATION_DAYS, "Claim date less than minimum");
         require(_nftInfos.length > 0, "At least one NFT required");
         require(msg.value > 0 && msg.value <= MAX_DEPOSIT, "Deposit out of range");
+        require(GlobalsInstance.treasureBoxAddress() != address(0), "Treasure box address is zero");
 
         // Calculate Tokens
         uint256 daysDifference = (_claimDate - block.timestamp) / 1 days;
-        console.log("daysDifference: ", daysDifference);
         uint256 userInterest = daysDifference * DAILY_INTEREST_RATE;
         uint256 myntTokens = calculateReward(msg.value, userInterest);
 
@@ -146,6 +143,22 @@ contract MyntistTreasureBox {
         emit TreasureBoxCreated(msg.sender, newBoxId, _claimDate, msg.value, myntTokens);
     }
 
+    function calculateEthToMyntTokens(uint256 _claimDate, NftInfo[] calldata _nftInfos, uint256 _depositAmountInEther) public view returns (uint256) {
+        require(_claimDate > block.timestamp, "Claim date must be in the future");
+        require(_claimDate <= block.timestamp + MAX_CREATION_DAYS, "Claim date higher than maximum");
+        require(_claimDate >= block.timestamp + MIN_CREATION_DAYS, "Claim date less than minimum");
+        require(_nftInfos.length > 0, "At least one NFT required");
+
+        // Convert ether value to wei
+        uint256 _ethValueInWei = _depositAmountInEther * 1 ether;
+
+        // Calculate Tokens
+        uint256 daysDifference = (_claimDate - block.timestamp) / 1 days;
+        uint256 userInterest = daysDifference * DAILY_INTEREST_RATE;
+        uint256 myntTokens = calculateReward(_ethValueInWei, userInterest);
+        return myntTokens;
+    }
+
     function allocateNFTRewards(uint256 boxId, NftInfo[] calldata _nftInfos, uint256 _totalMyntReward) private {
         uint256 totalNftValue = 0;
        
@@ -154,30 +167,24 @@ contract MyntistTreasureBox {
             require(verifyNFTOwnershipAndType(_nftInfos[i].nftContract, _nftInfos[i].nftId ), "Caller does not own the NFTs");
             require(!nftUsed[_nftInfos[i].nftContract][_nftInfos[i].nftId], "NFT already used in a treasure box");
 
-            // If amount is 0, treat it ERC721
-            if (_nftInfos[i].amount == 0) {
-                require(isERC721(_nftInfos[i].nftContract), "Zero amount must only be used for ERC721 tokens");
+            NftInfo memory info = _nftInfos[i];
+            if (isERC721(info.nftContract)) {
+                require(info.amount == 0, "Amount must be zero for ERC721 tokens");
             }
-            
+            else if (isERC1155(info.nftContract)) {
+                require(info.amount >= 1, "Amount should be greater or equal to one for ERC1155 tokens");
+            } 
+        
             totalNftValue += _nftInfos[i].nftValue;
         }
   
         for (uint256 i = 0; i < _nftInfos.length; ++i) {
-            
-            // Locks Nft
-            NftInfo memory info = _nftInfos[i];
-            if (isERC721(info.nftContract)) {
-                IERC721(info.nftContract).transferFrom(msg.sender, address(this), _nftInfos[i].nftId);
-            } else if (isERC1155(info.nftContract)) {
-                IERC1155(info.nftContract).safeTransferFrom(msg.sender, address(this), _nftInfos[i].nftId, _nftInfos[i].amount, "");
-            }
 
             // Formula
             uint256 reward = (_nftInfos[i].nftValue * _totalMyntReward) / totalNftValue;
 
             // Update the states
             rewards[boxId][_nftInfos[i].nftId] = reward;
-            // nftInfoMap[boxId][_nftInfos[i].nftId] = NftInfo(_nftInfos[i].nftContract, _nftInfos[i].nftId, _nftInfos[i].nftValue);
             nftInfoMap[boxId].push(NftInfo(_nftInfos[i].nftContract, _nftInfos[i].nftId, _nftInfos[i].nftValue, _nftInfos[i].amount));
             nftUsed[_nftInfos[i].nftContract][_nftInfos[i].nftId] = true;
         }
@@ -186,34 +193,30 @@ contract MyntistTreasureBox {
     function claimTreasureBox(uint256 _boxId, uint256 _nftId) external {
         require(_boxId > 0 && _boxId <= _boxIds.current(), "Invalid box ID");
         TreasureBox storage box = treasureBoxes[_boxId];
-        require(box.creator != address(0), "TreasureBox does not exist.");
         require(box.remainingNfts > 0, "No NFTs left to claim");
-        require (msg.sender == box.creator, "Caller is not the NFT creaor");
         // require(block.timestamp >= box.claimDate, "Too early to claim");
         
-        // Finds NFT and transfer
+        // Finds NFT
         bool found = false;
+        uint256 nftIndex;
         for (uint256 i = 0; i < nftInfoMap[_boxId].length; i++) {
             if (nftInfoMap[_boxId][i].nftId == _nftId) {
-                NftInfo storage nftInfo = nftInfoMap[_boxId][i];
                 found = true;
-
-                // Unlock NFT
-                if (isERC721(nftInfo.nftContract)) {
-                    IERC721(nftInfo.nftContract).transferFrom(address(this), msg.sender, _nftId);
-                } else if (isERC1155(nftInfo.nftContract)) {
-                    IERC1155(nftInfo.nftContract).safeTransferFrom(address(this), msg.sender, _nftId, nftInfo.amount, "");
-                }
+                nftIndex = i;
                 break;
             }
         }
 
         require(found, "NFT ID Not found in Treasure Box");
+
+        NftInfo memory nftInfo = nftInfoMap[_boxId][nftIndex];
+        require(verifyNFTOwnershipAndType(nftInfo.nftContract, nftInfo.nftId), "Caller does not own the NFTs");
         uint256 rewardAmount = rewards[_boxId][_nftId];
         require(rewardAmount > 0, "No reward for this NFT");
 
         // Reward Mynt tokens and ETH
-        GlobalsInstance.mint(msg.sender, rewardAmount, GlobalsInstance.getTreasureBoxAddress());
+        GlobalsInstance.mint(msg.sender, rewardAmount, GlobalsInstance.treasureBoxAddress());
+        
         if (box.depositAmount > 0){
             distributeRaisedCoins(_boxId, _nftId);
         }
@@ -243,39 +246,37 @@ contract MyntistTreasureBox {
         emit CoinsDistributed(_boxId, _nftId, distributionAmount);
     }
 
-    function fundEthToTreasureBox(address _creator, uint256 _boxId) external payable
+    function fundEthToTreasureBox(uint256 _boxId) public payable
     {
         TreasureBox storage treasureBox = treasureBoxes[_boxId];
 
         require(msg.value > 0, "Insufficient ETH/BNB");
-        require(treasureBox.creator != address(0), "TreasureBox does not exist.");
         require(_boxId > 0 && _boxId <= _boxIds.current(), "Invalid Box ID");
         require(block.timestamp < treasureBox.claimDate,"Cannot Fund After Maturity");
 
         treasureBox.depositAmount += msg.value;
-        nonFlushableAmount += msg.value; 
+        nonFlushableAmount += msg.value;
 
-        emit TreasureBoxFunded(msg.sender, _creator, msg.value, block.timestamp);
+        emit TreasureBoxFunded(msg.sender, _boxId, msg.value, block.timestamp);
     }
 
-    function fundTokensToTreasureBox(address _creator, uint256 _boxId, uint256 _myntTokens) external 
+    function fundTokensToTreasureBox(uint256 _boxId, uint256 _myntTokens) public 
     {
         TreasureBox storage treasureBox = treasureBoxes[_boxId];
 
         require(_myntTokens > 0, "Insufficient Mynt Tokens" );
-        require(treasureBox.creator != address(0), "TreasureBox does not exist.");
         require(_boxId > 0 && _boxId <= _boxIds.current(), "Invalid Box ID");
         require(block.timestamp < treasureBox.claimDate,"Cannot Fund After Maturity");
 
-        bool success = GlobalsInstance.transferFrom(msg.sender, _creator, _myntTokens);
-        require(success, "Transfer failed");
-
         treasureBox.totalMyntReward += _myntTokens; 
+
+        bool success = GlobalsInstance.transferFrom(msg.sender, treasureBox.creator, _myntTokens);
+        require(success, "Transfer failed");
  
-        emit TreasureBoxFunded(msg.sender, _creator, _myntTokens, block.timestamp);
+        emit TreasureBoxFunded(msg.sender, _boxId, _myntTokens, block.timestamp);
     }
 
-    function flushContractBalanceToOwner() external onlyOwner {
+    function flushContractBalanceToOwner() public onlyOwner {
         uint256 flushableAmount = address(this).balance - nonFlushableAmount;
         require(address(this).balance != 0 && flushableAmount != 0, "MYNT: No Value to flush");
         transferFunds(GlobalsInstance.FLUSH_ADDR(), flushableAmount);
@@ -289,5 +290,6 @@ contract MyntistTreasureBox {
 
 // ["https:QaADAsdasfeSDf/1.json", "https:QaADAsdasfeSDf/2.json", "https:QaADAsdasfeSDf/3.json"]
 
-// 1712484909
+// 1723107685
 // [["0x5FD6eB55D12E759a21C09eF703fe0CBa1DC9d88D", 1,2,1],["0x5FD6eB55D12E759a21C09eF703fe0CBa1DC9d88D", 2,4,1],["0x5FD6eB55D12E759a21C09eF703fe0CBa1DC9d88D", 3,6,1]] 
+// [["0xe2899bddFD890e320e643044c6b95B9B0b84157A", 1,2,0],["0xe2899bddFD890e320e643044c6b95B9B0b84157A", 2,4,0],["0xe2899bddFD890e320e643044c6b95B9B0b84157A", 3,6,0]] 
