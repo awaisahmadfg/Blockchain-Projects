@@ -37,4 +37,9 @@ readPastEvents = async function (eventName) {
     });
 }
 
+
+// WS_URL = "wss://sepolia.infura.io/ws/v3/789a100ae5ab48c9a378ab3d7e060e00"
+// CONTRACT_ADDRESS = "0xf8830d31153e242E462F7E9eaA83bAD5462884a5"
+// HTTP_URL = "https://sepolia.infura.io/v3/789a100ae5ab48c9a378ab3d7e060e00"
+
 readPastEvents(readEventNames);
