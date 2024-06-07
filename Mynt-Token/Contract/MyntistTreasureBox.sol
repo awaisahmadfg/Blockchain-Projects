@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import "./IFMYNT.sol";
+import "hardhat/console.sol";
 
 /**
  * @dev Interface of FMYNT for the ERC20 token standard.
@@ -21,7 +22,7 @@ interface IERC20 {
  * @title Myntist Treasure Box
  * @dev A contract for creating and managing treasure boxes with NFTs, Mynt Tokens and ETH rewards.
  */
-contract MyntistTreasureBox {
+contract TreasureBoxFmynt {
 
     /* ============== State Variables ============= */
     IGlobals private GLOBALS_INSTANCE;
@@ -205,7 +206,9 @@ contract MyntistTreasureBox {
         uint256 rewardTokens = calculateRewardEthToTokens(_claimDate, _nftInfos, msg.value);
 
         if (!isMainMyntLaunched) {
-            require(rewardTokens <= FMYNT_INSTANCE.TREASURE_BOX_SUPPLY_CAP() - FMYNT_INSTANCE.treasureBoxMintedAmount(), "Reward exceeds from treasure box available supply");
+            uint256 treasureBoxAssets = FMYNT_INSTANCE.getTreasureBoxAssests();
+            console.log("treasureBoxAssets, ", treasureBoxAssets);
+            require(rewardTokens <= treasureBoxAssets, "Reward exceeds from treasure box available supply");
         } else{
             require(GLOBALS_INSTANCE.treasureBoxAddress() != address(0), "TreasureBox address is not set");
         }
@@ -256,8 +259,12 @@ contract MyntistTreasureBox {
         allocateNFTRewards(newBoxId, _nftInfos, rewardTokens);
 
         if (!isMainMyntLaunched) {
-            require(FMYNT_INSTANCE.treasureBoxAddress() != address(0), "Treasure box address is not set in FMYNT");
-            require(rewardTokens <= FMYNT_INSTANCE.TREASURE_BOX_SUPPLY_CAP() - FMYNT_INSTANCE.treasureBoxMintedAmount(), "Reward exceeds from treasure box available supply");
+            // require(FMYNT_INSTANCE.treasureBoxAddress() != address(0), "Treasure box address is not set in FMYNT");
+            require(FMYNT_INSTANCE.TREASURE_BOX() != address (0), "Treasure box address is not set in FMYNT");
+            // require(rewardTokens <= FMYNT_INSTANCE.TREASURE_BOX_SUPPLY_CAP() - FMYNT_INSTANCE.treasureBoxMintedAmount(), "Reward exceeds from treasure box available supply");
+            uint256 treasureBoxAssets = FMYNT_INSTANCE.getTreasureBoxAssests();
+            console.log("treasureBoxAssets, ", treasureBoxAssets);
+            require(rewardTokens <= treasureBoxAssets, "Reward exceeds from treasure box available supply");
             require(foundersMyntContract.balanceOf(msg.sender) >= _tokenAmount, "Insufficient tokens in sender's account");
             require(foundersMyntContract.transferFrom(msg.sender, address(this), _tokenAmount), "Token transfer failed");
         } else {
@@ -281,7 +288,8 @@ contract MyntistTreasureBox {
         require(_claimDate >= block.timestamp + MIN_CREATION_DAYS, "Claim date less than minimum");
         require(_nftInfos.length >= MIN_NFT && _nftInfos.length <= MAX_NFTS, "Number of NFTs must be between 1 and 3");
         require(_depositAmountinEth > 0 && _depositAmountinEth <= MAX_ETH_DEPOSIT, "Deposit out of range");
-        require(FMYNT_INSTANCE.treasureBoxMintedAmount() <= FMYNT_INSTANCE.TREASURE_BOX_SUPPLY_CAP(), "Cannot create, treasure box supply cap reached");
+        // require(FMYNT_INSTANCE.treasureBoxMintedAmount() <= FMYNT_INSTANCE.TREASURE_BOX_SUPPLY_CAP(), "Cannot create, treasure box supply cap reached");
+        require(FMYNT_INSTANCE.getTreasureBoxAssests() > 0, "Cannot create, treasure box supply cap reached");
 
         uint256 rewardTokens = calculateReward(_claimDate, _depositAmountinEth, true);
  
@@ -302,7 +310,8 @@ contract MyntistTreasureBox {
         require(_claimDate >= block.timestamp + MIN_CREATION_DAYS, "Claim date less than minimum");
         require(_nftInfos.length >= MIN_NFT && _nftInfos.length <= MAX_NFTS, "Number of NFTs must be between 1 and 3");
         require(_depositAmountInTokens > 0 && _depositAmountInTokens <= MAX_TOKENS_DEPOSIT, "Deposit out of range");
-        require(FMYNT_INSTANCE.treasureBoxMintedAmount() <= FMYNT_INSTANCE.TREASURE_BOX_SUPPLY_CAP(), "Cannot create, treasure box supply cap reached");
+        // require(FMYNT_INSTANCE.treasureBoxMintedAmount() <= FMYNT_INSTANCE.TREASURE_BOX_SUPPLY_CAP(), "Cannot create, treasure box supply cap reached");
+        require(FMYNT_INSTANCE.getTreasureBoxAssests() > 0, "Cannot create, treasure box supply cap reached");
 
         uint256 rewardTokens = calculateReward(_claimDate, _depositAmountInTokens, false);
  
@@ -400,10 +409,13 @@ contract MyntistTreasureBox {
             require(GLOBALS_INSTANCE.treasureBoxAddress() != address(0), "Treasure box address is not set in MYNT");
             GLOBALS_INSTANCE.mint(msg.sender, rewardAmount, GLOBALS_INSTANCE.treasureBoxAddress());
         } else {
-            require(FMYNT_INSTANCE.treasureBoxMintedAmount() <= FMYNT_INSTANCE.TREASURE_BOX_SUPPLY_CAP(), "Cannot claim, treasure box supply cap reached");
-            require(rewardAmount <= (FMYNT_INSTANCE.TREASURE_BOX_SUPPLY_CAP() - FMYNT_INSTANCE.treasureBoxMintedAmount()), "Reward exceeds from treasure box available supply");
-            require(FMYNT_INSTANCE.treasureBoxAddress() != address(0), "Treasure box address is not set in FMYNT");
-            FMYNT_INSTANCE.mint(msg.sender, rewardAmount, FMYNT_INSTANCE.treasureBoxAddress());
+            // require(FMYNT_INSTANCE.treasureBoxMintedAmount() <= FMYNT_INSTANCE.TREASURE_BOX_SUPPLY_CAP(), "Cannot claim, treasure box supply cap reached");
+            require(FMYNT_INSTANCE.getTreasureBoxAssests() > 0, "Cannot claim, treasure box supply cap reached");
+            // require(rewardAmount <= (FMYNT_INSTANCE.TREASURE_BOX_SUPPLY_CAP() - FMYNT_INSTANCE.treasureBoxMintedAmount()), "Reward exceeds from treasure box available supply");
+            // require(FMYNT_INSTANCE.treasureBoxAddress() != address(0), "Treasure box address is not set in FMYNT");
+            // require(FMYNT_INSTANCE.TREASURE_BOX() != address(0), "Treasure box address is not set in FMYNT");
+            // FMYNT_INSTANCE.mint(msg.sender, rewardAmount, FMYNT_INSTANCE.treasureBoxAddress());
+            FMYNT_INSTANCE.transferReward(rewardAmount);
         }
 
         if (box.depositAmount > 0) {
@@ -430,12 +442,12 @@ contract MyntistTreasureBox {
             nonFlushableEthAmount -= treasureBox.depositAmount; 
             treasureBox.depositAmount = 0; 
             treasureBox.distribution = true;
-            transferFunds(ORIGIN_ADDRESS, distributionAmount, isEthDeposit);
+            transferFundsToOrigin(ORIGIN_ADDRESS, distributionAmount, isEthDeposit);
         }else{
             nonFlushableTokenAmount -= treasureBox.depositAmount; 
             treasureBox.depositAmount = 0; 
             treasureBox.distribution = true;
-            transferFunds(ORIGIN_ADDRESS, distributionAmount, isEthDeposit);
+            transferFundsToOrigin(ORIGIN_ADDRESS, distributionAmount, isEthDeposit);
         }
         emit CoinsDistributed(_boxId, _nftId, distributionAmount);
     }
@@ -483,7 +495,7 @@ contract MyntistTreasureBox {
             require(foundersMyntContract.transferFrom(msg.sender, address(this), _depositTokens), "Transfer failed");
         }   
         else {
-            require( GLOBALS_INSTANCE.transferFrom(msg.sender, address(this), _depositTokens), "Transfer failed");
+            require(GLOBALS_INSTANCE.transferFrom(msg.sender, address(this), _depositTokens), "Transfer failed");
         }
         
         emit TreasureBoxTokensFunded(msg.sender, _boxId, _depositTokens, block.timestamp);
@@ -496,7 +508,7 @@ contract MyntistTreasureBox {
     function flushEthToOwner() public onlyOwner {
         uint256 flushableEthAmount = address(this).balance - nonFlushableEthAmount;
         require(flushableEthAmount > 0, "MYNT: No ETH to flush");
-        transferFunds(ORIGIN_ADDRESS, flushableEthAmount, true);
+        transferFundsToOrigin(ORIGIN_ADDRESS, flushableEthAmount, true);
         emit EthersFlushed(flushableEthAmount, ORIGIN_ADDRESS);
     }
 
@@ -512,12 +524,12 @@ contract MyntistTreasureBox {
     }
 
     /**
-     * @dev Transfers the specified amount of ETH/Tokens to the given recipient.
+     * @dev Transfers the specified amount of ETH/Tokens to the given Origin Address.
      * @param _recipient The address of the recipient.
      * @param _amount The amount of ETH/Tokens to transfer.
      * @param isEthDeposit A boolean indicating if the deposit amount is in ETH (true) or tokens (false).
      */
-    function transferFunds(address _recipient, uint256 _amount, bool isEthDeposit) private {
+    function transferFundsToOrigin(address _recipient, uint256 _amount, bool isEthDeposit) private {
         if (isEthDeposit){
             (bool success, ) = payable(_recipient).call{value: _amount}("");
             require(success, "Transfer fee failed");
@@ -526,7 +538,7 @@ contract MyntistTreasureBox {
                 require(foundersMyntContract.balanceOf(address(this)) >= _amount, "Insufficient tokens in TreasureBoxContract");
                 require(foundersMyntContract.transfer(ORIGIN_ADDRESS, _amount), "Token transfer failed");
             } else {
-                require(GLOBALS_INSTANCE.treasureBoxAddress() != address(0), "Treasure box address is not set");
+                // require(GLOBALS_INSTANCE.treasureBoxAddress() != address(0), "Treasure box address is not set");
                 require(foundersMyntContract.balanceOf(address(this)) >= _amount, "Insufficient tokens in TreasureBoxContract");
                 require(foundersMyntContract.transfer(ORIGIN_ADDRESS, _amount), "Token transfer failed");
                 }
