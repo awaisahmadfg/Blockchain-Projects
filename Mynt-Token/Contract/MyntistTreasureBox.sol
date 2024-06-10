@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import "./IFMYNT.sol";
-import "hardhat/console.sol";
 
 /**
  * @dev Interface of FMYNT for the ERC20 token standard.
@@ -206,13 +205,13 @@ contract TreasureBoxFmynt {
         uint256 rewardTokens = calculateRewardEthToTokens(_claimDate, _nftInfos, msg.value);
 
         if (!isMainMyntLaunched) {
+            require(FMYNT_INSTANCE.TREASURE_BOX() != address(0), "Treasure box address is not set in FMYNT");
+            require(FMYNT_INSTANCE.getTreasureBoxAssests() > 0, "Cannot create, treasure box supply cap reached");
             uint256 treasureBoxAssets = FMYNT_INSTANCE.getTreasureBoxAssests();
-            console.log("treasureBoxAssets, ", treasureBoxAssets);
             require(rewardTokens <= treasureBoxAssets, "Reward exceeds from treasure box available supply");
         } else{
             require(GLOBALS_INSTANCE.treasureBoxAddress() != address(0), "TreasureBox address is not set");
         }
-
         _boxIds.increment();
         uint256 newBoxId = _boxIds.current();
         
@@ -225,7 +224,7 @@ contract TreasureBoxFmynt {
         newBox.remainingNfts = _nftInfos.length;
         newBox.isEthDeposit = true;
         nonFlushableEthAmount += msg.value;
-        
+
         // Distribute myntRewardTokens base on NftValue  
         allocateNFTRewards(newBoxId, _nftInfos, rewardTokens);
 
@@ -259,11 +258,9 @@ contract TreasureBoxFmynt {
         allocateNFTRewards(newBoxId, _nftInfos, rewardTokens);
 
         if (!isMainMyntLaunched) {
-            // require(FMYNT_INSTANCE.treasureBoxAddress() != address(0), "Treasure box address is not set in FMYNT");
             require(FMYNT_INSTANCE.TREASURE_BOX() != address (0), "Treasure box address is not set in FMYNT");
-            // require(rewardTokens <= FMYNT_INSTANCE.TREASURE_BOX_SUPPLY_CAP() - FMYNT_INSTANCE.treasureBoxMintedAmount(), "Reward exceeds from treasure box available supply");
+            require(FMYNT_INSTANCE.getTreasureBoxAssests() > 0, "Cannot create, treasure box supply cap reached");
             uint256 treasureBoxAssets = FMYNT_INSTANCE.getTreasureBoxAssests();
-            console.log("treasureBoxAssets, ", treasureBoxAssets);
             require(rewardTokens <= treasureBoxAssets, "Reward exceeds from treasure box available supply");
             require(foundersMyntContract.balanceOf(msg.sender) >= _tokenAmount, "Insufficient tokens in sender's account");
             require(foundersMyntContract.transferFrom(msg.sender, address(this), _tokenAmount), "Token transfer failed");
@@ -288,8 +285,6 @@ contract TreasureBoxFmynt {
         require(_claimDate >= block.timestamp + MIN_CREATION_DAYS, "Claim date less than minimum");
         require(_nftInfos.length >= MIN_NFT && _nftInfos.length <= MAX_NFTS, "Number of NFTs must be between 1 and 3");
         require(_depositAmountinEth > 0 && _depositAmountinEth <= MAX_ETH_DEPOSIT, "Deposit out of range");
-        // require(FMYNT_INSTANCE.treasureBoxMintedAmount() <= FMYNT_INSTANCE.TREASURE_BOX_SUPPLY_CAP(), "Cannot create, treasure box supply cap reached");
-        require(FMYNT_INSTANCE.getTreasureBoxAssests() > 0, "Cannot create, treasure box supply cap reached");
 
         uint256 rewardTokens = calculateReward(_claimDate, _depositAmountinEth, true);
  
@@ -310,8 +305,6 @@ contract TreasureBoxFmynt {
         require(_claimDate >= block.timestamp + MIN_CREATION_DAYS, "Claim date less than minimum");
         require(_nftInfos.length >= MIN_NFT && _nftInfos.length <= MAX_NFTS, "Number of NFTs must be between 1 and 3");
         require(_depositAmountInTokens > 0 && _depositAmountInTokens <= MAX_TOKENS_DEPOSIT, "Deposit out of range");
-        // require(FMYNT_INSTANCE.treasureBoxMintedAmount() <= FMYNT_INSTANCE.TREASURE_BOX_SUPPLY_CAP(), "Cannot create, treasure box supply cap reached");
-        require(FMYNT_INSTANCE.getTreasureBoxAssests() > 0, "Cannot create, treasure box supply cap reached");
 
         uint256 rewardTokens = calculateReward(_claimDate, _depositAmountInTokens, false);
  
@@ -376,7 +369,7 @@ contract TreasureBoxFmynt {
         require(_boxId > 0 && _boxId <= _boxIds.current(), "Invalid box ID");
         TreasureBox storage box = treasureBoxes[_boxId];
         require(box.remainingNfts > 0, "No NFTs left to claim");
-        require(block.timestamp >= box.claimDate, "Too early to claim");
+        // require(block.timestamp >= box.claimDate, "Too early to claim");
 
         // Finds NFT
         bool found = false;
@@ -391,7 +384,6 @@ contract TreasureBoxFmynt {
 
         require(found, "NFT ID Not found in Treasure Box");
         require(rewards[_boxId][_nftId] != 0 , "Reward already claimed for this NFT");
-
         NftInfo memory nftInfo = nftInfoMap[_boxId][nftIndex];
         require(verifyNFTOwnershipAndType(nftInfo.nftContract, nftInfo.nftId), "Caller does not own the NFTs");
         uint256 rewardAmount = rewards[_boxId][_nftId];
@@ -409,26 +401,22 @@ contract TreasureBoxFmynt {
             require(GLOBALS_INSTANCE.treasureBoxAddress() != address(0), "Treasure box address is not set in MYNT");
             GLOBALS_INSTANCE.mint(msg.sender, rewardAmount, GLOBALS_INSTANCE.treasureBoxAddress());
         } else {
-            // require(FMYNT_INSTANCE.treasureBoxMintedAmount() <= FMYNT_INSTANCE.TREASURE_BOX_SUPPLY_CAP(), "Cannot claim, treasure box supply cap reached");
+            require(FMYNT_INSTANCE.TREASURE_BOX() != address(0), "Treasure box address is not set in FMYNT");
             require(FMYNT_INSTANCE.getTreasureBoxAssests() > 0, "Cannot claim, treasure box supply cap reached");
-            // require(rewardAmount <= (FMYNT_INSTANCE.TREASURE_BOX_SUPPLY_CAP() - FMYNT_INSTANCE.treasureBoxMintedAmount()), "Reward exceeds from treasure box available supply");
-            // require(FMYNT_INSTANCE.treasureBoxAddress() != address(0), "Treasure box address is not set in FMYNT");
-            // require(FMYNT_INSTANCE.TREASURE_BOX() != address(0), "Treasure box address is not set in FMYNT");
-            // FMYNT_INSTANCE.mint(msg.sender, rewardAmount, FMYNT_INSTANCE.treasureBoxAddress());
-            FMYNT_INSTANCE.transferReward(rewardAmount);
+            FMYNT_INSTANCE.transferReward(msg.sender, rewardAmount);
         }
 
         if (box.depositAmount > 0) {
             distributeRaisedCoins(_boxId, _nftId, box.isEthDeposit);
         }
- 
+
         delete rewards[_boxId][_nftId];
 
         emit RewardClaimed(msg.sender, _boxId, _nftId, rewardAmount, box.isBoxClaimed);
     }
 
     /**
-     * @dev Distributes the accumulated ETH/Tokens from a treasure box among the contract owner and the creator of the treasure box.
+     * @dev Distributes the accumulated ETH/Tokens from a treasure box among the contract owner and the contract of the treasure box.
      * @param _boxId The ID of the treasure box from which ETH/Tokens will be distributed.
      * @param _nftId The ID of the NFT triggering the distribution. Used for event logging.
      * @param isEthDeposit A boolean indicating if the deposit amount is in ETH (true) or tokens (false).
@@ -538,14 +526,13 @@ contract TreasureBoxFmynt {
                 require(foundersMyntContract.balanceOf(address(this)) >= _amount, "Insufficient tokens in TreasureBoxContract");
                 require(foundersMyntContract.transfer(ORIGIN_ADDRESS, _amount), "Token transfer failed");
             } else {
-                // require(GLOBALS_INSTANCE.treasureBoxAddress() != address(0), "Treasure box address is not set");
                 require(foundersMyntContract.balanceOf(address(this)) >= _amount, "Insufficient tokens in TreasureBoxContract");
                 require(foundersMyntContract.transfer(ORIGIN_ADDRESS, _amount), "Token transfer failed");
-                }
             }
+        }
     }
 }
 
 // ["https:QaADAsdasfeSDf/1.json", "https:QaADAsdasfeSDf/2.json", "https:QaADAsdasfeSDf/3.json"]
-// 1716614619,  [["0xB9e2A2008d3A58adD8CC1cE9c15BF6D4bB9C6d72", 1,2,0],["0xB9e2A2008d3A58adD8CC1cE9c15BF6D4bB9C6d72", 2,4,0],["0xB9e2A2008d3A58adD8CC1cE9c15BF6D4bB9C6d72", 3,6,0]]
-// 1717139546
+// 1718184936,  [["0xB9e2A2008d3A58adD8CC1cE9c15BF6D4bB9C6d72", 1,2,0],["0xB9e2A2008d3A58adD8CC1cE9c15BF6D4bB9C6d72", 2,4,0],["0xB9e2A2008d3A58adD8CC1cE9c15BF6D4bB9C6d72", 3,6,0]]
+// 1718184936
