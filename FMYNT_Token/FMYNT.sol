@@ -1,135 +1,147 @@
-
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+// import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+// import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "hardhat/console.sol";
 
-import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 
-contract FMYNT is ERC20, Ownable {
+contract MyFounders is Ownable, ERC20{
+
     using SafeMath for uint256;
 
-    event FeeTaken(address sender, uint256 feeAmount);
-    event TransferDetails(address sender, address recipient, uint256 amountWithFee, uint256 feeDeducted);
-    
-    address public immutable FEE_RECIEVER;
+    uint256 constant ONE_BILLION_ETHERS = 1000000000 ether;
+    uint8 constant TAX_PERCENTAGE = 5;
+    address payable ORIGIN_ADDRESS; // payable(0xA33d159Be1Bb7f094Baa2cfb4a5f6f9ac72D77CE);
+    address public TREASURE_BOX;
+    mapping (address => uint256) treasureBoxAssests;
+    mapping (address => bool) pairAddress;
 
-    // Constants
-    uint256 public constant BUY_TAX = 5; // 5% buy tax
-    uint256 public constant SELL_TAX = 5; // 5% sell tax
-    uint256 public constant TOTAL_SUPPLY = 1e9 * 1e18; // 1 billion tokens
-    
-    // Uniswap Integration
-    address public uniswapV2Pair;
-    IUniswapV2Router02 public uniswapV2Router;
-    address public mockTokenAddress;
+    event FoundersMyntBought(address buyer, uint256 _totalFmynt, uint256 _tax, uint256 receivedFmynt);
+    event FoundersMyntSold(address seller, uint256 _totalFmynt, uint256 _tax, uint256 soldFmynt);
+    event EthersFlushed(uint256 _amount);
 
-    // Tax Tracking
-    mapping(address => bool) public _isExcludedFromFee;  // List of addresses excluded from tax
-
-    constructor(address _feeReceiver, address _mockTokenAddress) Ownable(msg.sender) ERC20("Founders Mynt Token","FMYNT"){
-        _mint(msg.sender, TOTAL_SUPPLY);
-        FEE_RECIEVER = _feeReceiver; // Initialize feeReceiver from constructor parameter
-        mockTokenAddress = _mockTokenAddress;
-
-        // Replace with actual Uniswap router address
-        // Example: Uniswap V2 Router on Ethereum Sepolia = 0x425141165d3DE9FEC831896C016617a52363b687
-        // Sepolia working router is : 0xC532a74256D3Db42D0Bf7a0400fEFDbad7694008
-        // For BSC pancakeswap: 0x9A082015c919AD0E47861e5Db9A1c7070E81A2C7 or 0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3, 0xD99D1c33F9fC3444f8101754aBC46c52416550D1      
-        uniswapV2Router = IUniswapV2Router02(0xD99D1c33F9fC3444f8101754aBC46c52416550D1); 
-
-        // Create Uniswap pair with WETH
-        uniswapV2Pair = IUniswapV2Factory(uniswapV2Router.factory()).createPair(address(this), address(mockTokenAddress)); // uniswapV2Router.WETH()
-
-        // Exclude contract addresses and Owner from tax
-        //_isExcludedFromFee[address(this)] = true;
-        // _isExcludedFromFee[owner()] = true;
-        //_isExcludedFromFee[uniswapV2Pair] = true;
+    constructor(address _privateSafe, address _teamTokens, address _tbg) Ownable(msg.sender) ERC20("MY TOKEN FOUNDERS","MYF"){
+        ORIGIN_ADDRESS = payable(msg.sender);
+        _mint(address(this),ONE_BILLION_ETHERS);
+        _transfer(address(this), _privateSafe, calculatePercentage(ONE_BILLION_ETHERS,10)); //10% private safe
+        _transfer(address(this), _teamTokens, calculatePercentage(ONE_BILLION_ETHERS,10)); //10% team tokens
+        _transfer(address(this), _tbg, calculatePercentage(ONE_BILLION_ETHERS,10)); //10% treasure box and gamification
+        _transfer(address(this), ORIGIN_ADDRESS, calculatePercentage(ONE_BILLION_ETHERS,50));
     }
 
-    function transfer(address recipient, uint256 amount) public override returns (bool)  {
-        address sender = _msgSender(); // From OpenZeppelin's context for keeping track of the sender
-        uint256 fees = 0;
+    function calculatePercentage(uint256 _amount, uint256 _percentage) public pure returns(uint256){
+        return (_amount.mul(_percentage)).div(100);
+    }
 
-        console.log("Sender: ", sender);
-        console.log("Recipient: ", recipient);
+    function sellableTokens(address _owner) public view returns(uint256){
+        return balanceOf(_owner).sub(calculatePercentage(balanceOf(_owner), TAX_PERCENTAGE));
+    }
 
-        // If any account belongs to _isExcludedFromFee account then remove the fee
-        /* The contract first checks if the sender (user performing the swap) and the recipient 
-        (typically the Uniswap pair) are excluded from fees. In your setup, the Uniswap pair and 
-        the contract itself are excluded, but the user is generally not.*/
-        if (!_isExcludedFromFee[sender] && !_isExcludedFromFee[recipient]) {
-            // Buy
-            if (sender == uniswapV2Pair) { // && recipient != address(uniswapV2Router)
-                fees = amount.mul(BUY_TAX).div(100);
-            }
-            // Sell
-            else if (recipient == uniswapV2Pair) {
-                fees = amount.mul(SELL_TAX).div(100); // for 1 FMYNT 0.05 FMYNT would deduct
-            }
+    function transfer(address to, uint256 value) public virtual override returns (bool) {
+        address owner = _msgSender();
+        uint256 taxDeduction;
 
-            if (fees > 0) {
-                _transfer(sender, address(this), fees); // Transfer the fees to the contract itself
-                swapTokensForTokens(fees); // Swap the fees for Token
-                emit FeeTaken(sender, fees);
-                amount = amount.sub(fees); // Subtract the fees from the transfer amount
-            }
+        if(pairAddress[msg.sender] == true){
+            taxDeduction = calculatePercentage(value, TAX_PERCENTAGE);
+            _transfer(owner, to, value.sub(taxDeduction));
+            _transfer(owner, ORIGIN_ADDRESS, taxDeduction);
+            emit FoundersMyntBought(msg.sender, value.add(taxDeduction), taxDeduction, value.sub(taxDeduction));
         }
 
-        // The remaining amount of FMYNT (0.95 FMYNT if the initial amount was 1 FMYNT) is then transferred to the Uniswap pair as part of the user’s original sell order.
-        _transfer(sender, recipient, amount); // Perform the actual transfer
-        emit TransferDetails(sender, recipient, amount, fees);
+        else if(pairAddress[to] == true){
+            // require(value <= sellableTokens(owner), "Invalid transfer amount.");
+            taxDeduction = calculatePercentage(value, TAX_PERCENTAGE);
+            _transfer(owner, to, value.sub(taxDeduction));
+            _transfer(owner, ORIGIN_ADDRESS, taxDeduction);
+            emit FoundersMyntSold(msg.sender, value.add(taxDeduction), taxDeduction, value.sub(taxDeduction));
+        }
+        else{
+            _transfer(owner, to, value);
+        }
         return true;
     }
 
-    function transferFrom( address sender, address recipient, uint256 amount) public virtual override returns (bool) {
+    function transferFrom(address from, address to, uint256 value) public virtual override returns (bool) {
         address spender = _msgSender();
-        uint256 currentAllowance = allowance(sender, spender);
-        require(currentAllowance >= amount, "ERC20: transfer amount exceeds allowance");
-        _approve(sender, spender, currentAllowance - amount);
-
-        uint256 fees = 0;
-        if (!_isExcludedFromFee[sender] && !_isExcludedFromFee[recipient]) {
-            // Apply tax logic similarly as in the transfer function
-            if (sender == uniswapV2Pair) {  // Assumed Buy Transaction
-                fees = amount.mul(BUY_TAX).div(100);
-            } else if (recipient == uniswapV2Pair) {  // Assumed Sell Transaction
-                fees = amount.mul(SELL_TAX).div(100); 
+        uint256 taxDeduction;
+        _spendAllowance(from, spender, value);
+      
+        if(pairAddress[msg.sender] == true){
+            taxDeduction = calculatePercentage(value, TAX_PERCENTAGE);
+            _transfer(from, to, value.sub(taxDeduction));
+            _transfer(from, ORIGIN_ADDRESS, taxDeduction);
+            emit FoundersMyntBought(msg.sender, value.add(taxDeduction), taxDeduction, value.sub(taxDeduction));
         }
 
-        if (fees > 0) {
-            _transfer(sender, address(this), fees);
-            swapTokensForTokens(fees);  // Swap the fees for Token, consider reentrancy concerns
-            emit FeeTaken(sender, fees);
-            amount = amount.sub(fees);
+        else if(pairAddress[to] == true ){
+            // require(value <= sellableTokens(from), "Invalid transfer amount.");
+            taxDeduction = calculatePercentage(value, TAX_PERCENTAGE);
+            _transfer(from, to, value.sub(taxDeduction));
+            _transfer(from, ORIGIN_ADDRESS, taxDeduction);
+            emit FoundersMyntSold(msg.sender, value.add(taxDeduction), taxDeduction, value.sub(taxDeduction));
         }
-    }
-        _transfer(sender, recipient, amount);
-        emit TransferDetails(sender, recipient, amount, fees);
-
+        else{
+            _transfer(from, to, value);
+        }
         return true;
     }
 
-    function swapTokensForTokens(uint256 tokenAmount) private {
-        // Generate the uniswap pair path of FMYNT -> MockToken
-        address[] memory path = new address[](2);
-        path[0] = address(this);
-        path[1] = mockTokenAddress; // uniswapV2Router.WETH();
-
-        _approve(address(this), address(uniswapV2Router), tokenAmount); // Approving the Uniswap router to handle the required amount of FMYNT
-
-        // Make the swap: To swap the deducted fee (0.05 FMYNT) for MockToken.
-        uniswapV2Router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            tokenAmount,
-            0, // set to 0 to accept any amount of tokens
-            path,
-            FEE_RECIEVER, // The Token received from this swap is then sent to the FEE_RECIEVER.
-            block.timestamp
-        );
+    function flushEth() public onlyOwner {
+        require(address(this).balance > 0, "Nothing to flush.");
+        emit EthersFlushed(address(this).balance);
+        ORIGIN_ADDRESS.transfer(address(this).balance);
     }
+
+    function addPairAddress(address _pairAddress) public onlyOwner {
+        require(_pairAddress != address(0), "Empty address is not allowed.");
+        pairAddress[_pairAddress] = true;
+    }
+
+    function deletePairAddress(address _pairAddress) public onlyOwner {
+        require(_pairAddress != address(0), "Empty address is not allowed.");
+        require(pairAddress[_pairAddress] == true , "This address is not in the taxed accounts list");
+        delete pairAddress[_pairAddress];
+    }
+
+    function setTreasureBox(address _treasureBox) public onlyOwner {
+        require(_treasureBox != address(0), "Invlaid Address.");
+        if(TREASURE_BOX == address(0)){
+            TREASURE_BOX = _treasureBox;
+            treasureBoxAssests[_treasureBox] = calculatePercentage(ONE_BILLION_ETHERS, 20);
+        }
+        else{
+            treasureBoxAssests[_treasureBox] = treasureBoxAssests[TREASURE_BOX];
+            delete treasureBoxAssests[TREASURE_BOX];
+            TREASURE_BOX = _treasureBox;
+        }
+    }
+
+    function transferReward(address _to, uint256 _amount) public {
+        require(TREASURE_BOX != address(0), "Treasure Box not set.");
+        require(msg.sender == TREASURE_BOX, "Caller is not the treasure box address.");
+        require(treasureBoxAssests[TREASURE_BOX] >= _amount, "Treasure box Balance is Low.");
+        treasureBoxAssests[TREASURE_BOX] -= _amount;
+        _transfer(address(this), _to, _amount);
+    }
+
+    // function pauseContract() public onlyOwner {
+    //     _pause();
+    // }
+
+    // function unpauseContract() public onlyOwner {
+    //     _unpause();
+    // }
+
+    function checkpairAddress(address _pairAddress) public view returns(bool){
+        return pairAddress[_pairAddress];
+    }
+
+    function getTreasureBoxAssests() public view returns(uint256){
+        return treasureBoxAssests[TREASURE_BOX];
+    }
+
 }
