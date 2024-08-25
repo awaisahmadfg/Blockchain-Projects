@@ -56,4 +56,26 @@ contract IdeaNFT is ERC721URIStorage, Ownable{
         require(ownerOf(_tokenId) == msg.sender, "Not owner of token");
         _setTokenURI(_tokenId, _uri);
     }
+
+    /**
+     * @notice Fetches the token Ids and token uris owned by a given address.
+     * @param _owner The address of the token owner.
+     * @return tokenIds and uris The list of token IDs and uris owned by the address.
+     */
+    function getTokenIdsAndUris(address _owner) public view returns (uint256[] memory, string[] memory) {
+        uint256 tokenCount = balanceOf(_owner);
+        uint256[] memory tokenIds = new uint256[](tokenCount);
+        string[] memory uris = new string[](tokenCount);
+        uint256 index = 0;
+
+        for (uint256 tokenId = 1; tokenId < _tokenIds; tokenId++) {
+            if (ownerOf(tokenId) == _owner) {
+                tokenIds[index] = tokenId;
+                uris[index] = tokenURI(tokenId);
+                index++;
+            }
+        }
+
+    return (tokenIds, uris);
+}
 }
