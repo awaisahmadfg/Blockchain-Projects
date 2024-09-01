@@ -1,2 +1,2 @@
 # Blockchain-Projects
-My Projects Mostly are in Solifity and Rust Smart Contracts, web3.o 
+My Projects Mostly are in Solidity, NodeJS, ReactJS, ETHERJS and Rust Smart Contracts 
