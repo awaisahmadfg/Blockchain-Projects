@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.30;
+pragma solidity ^0.8.33;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -305,14 +305,14 @@ contract IdeaMarketplace is Initializable, OwnableUpgradeable, UUPSUpgradeable {
  
     /**
      * @notice Allows users to place a bid on an auction-listed NFT.
-     * @dev Ensures the auction is ongoing, the bid is higher than the current one, and the caller isn't the seller.
+     * @dev Ensures the auction is ongoing, the bid meets minimum requirements, and the caller isn't the seller.
+     *      First bid can be equal to or greater than initial price. Subsequent bids must be strictly greater than current bid.
      * @param _auctionId The ID of the auction to place a bid on.
      */
     function startBid(uint256 _auctionId) external payable {
         if (_auctionId == 0) revert InvalidAuctionId();
         if (block.timestamp <= uint256(auction[_auctionId].auctionStartTime) || block.timestamp >= uint256(auction[_auctionId].auctionEndTime)) revert CannotBidBeforeAuctionStartedOrAfterEnd();
         if (msg.sender == auction[_auctionId].nftOwner) revert SellerCannotPlaceBidOnOwnNFT();
-        if (msg.value < uint256(auction[_auctionId].initialPrice)) revert BidMustBeHigherThanInitialPrice();
         if (!auction[_auctionId].listed) revert NFTMustBeListedBeforeBidding();
         if (auction[_auctionId].isSold) revert ItemAlreadySold();
         uint256 expiryTime = ideaNftContract.getNFTExpireTime(uint256(auction[_auctionId].tokenId));
@@ -320,7 +320,15 @@ contract IdeaMarketplace is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
         address currentBidder = auction[_auctionId].currentBidder;
         uint256 currentBidAmount = uint256(auction[_auctionId].currentBidAmount);
-        if (msg.value <= currentBidAmount) revert HigherOrEqualBidAlreadyExists();
+        uint256 initialPrice = uint256(auction[_auctionId].initialPrice);
+
+        // If no bids exist, bid must be >= initial price
+        if (currentBidder == address(0)) {
+            if (msg.value < initialPrice) revert BidMustBeHigherThanInitialPrice();
+        } else {
+            // If bids exist, bid must be strictly greater than current bid
+            if (msg.value <= currentBidAmount) revert HigherOrEqualBidAlreadyExists();
+        }
 
         if (currentBidder != address(0)) {
             transferFunds(currentBidder, currentBidAmount);
@@ -572,4 +580,3 @@ contract IdeaMarketplace is Initializable, OwnableUpgradeable, UUPSUpgradeable {
      */
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }
-
