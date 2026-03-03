@@ -1,36 +1,46 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.33;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721URIStorageUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
- * @title IdeaNFT
+ * @title IdeaNFT (Upgradeable)
  * @dev Implements an ERC721 NFT contract with URI storage and contract ownership management.
  * Allows minting of NFTs with unique URIs and updates of token URIs.
+ * This contract uses UUPS (Universal Upgradeable Proxy Standard) for upgradeability.
  */
-contract IdeaNFT is ERC721, ERC721URIStorage, Ownable{
-    uint256 public _tokenIds = 1;
+contract IdeaNFT is 
+    Initializable,
+    ERC721Upgradeable, 
+    ERC721URIStorageUpgradeable, 
+    OwnableUpgradeable,
+    UUPSUpgradeable 
+{
+    // Custom Errors
+    error TokenURICannotBeEmpty();
+    error TokenIDMustBeGreaterThanZero();
+    error NotOwnerOfToken();
+    error NFTHaveExpired();
+    error OwnerAddressCannotBeZero();
+    error AtLeastOneTokenIdRequired();
+    error OwnerOfTokenIdDoesNotExist();
 
-    /**
-     * @notice Initializes the ERC721 token with the name "IdeaNFT" and symbol "IDEANFT".
-     * @dev Constructor that sets up the token details and assigns the contract owner.
-     */
-    constructor() ERC721("IdeaNFT", "IDEANFT") Ownable(msg.sender){}
+    // Constants
+    uint256 public constant EXPIRY_DURATION = 365 days;
 
-    /**
-     * @notice Emitted when a new NFT is minted.
-     * @dev Includes the address of the recipient, the token ID, and the token's URI.
-     */
-    event NFTMinted(address recieverAddress, uint256 tokenId, string tokenURI);
+    // Storage variables
+    uint256 public _tokenIds;
 
     /**
      * @notice Represents a NFT related informations
      */
     struct NFT {
-        uint256 mintedAt;
-        uint256 expiryTime;
+        uint128 mintedAt; 
+        uint128 expiryTime;
         address royaltyReciever;
     }
 
@@ -38,29 +48,62 @@ contract IdeaNFT is ERC721, ERC721URIStorage, Ownable{
      * @notice Maps a token ID to its NFT Struct.
      * @dev This mapping ensures that each token has a designated address to receive royalty payments, NFT creation time and expiry time.
      */
-    mapping(uint256 => NFT ) public NFTInfo;
+    mapping(uint256 => NFT) public NFTInfo;
 
     /**
-     * @notice Mints a newly minted NFT and assigns it to the caller.
+     * @notice Emitted when a new NFT is minted.
+     * @dev Includes the address of the recipient, the token ID, and the token's URI.
+     */
+    event NFTMinted(address recieverAddress, uint256 tokenId, string tokenURI);
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /**
+     * @notice Initializes the ERC721 token with the name "IdeaNFT" and symbol "IDEANFT".
+     * @dev Initializer function that replaces constructor for upgradeable contracts.
+     */
+    function initialize() public initializer {
+        if (msg.sender == address(0)) revert OwnerAddressCannotBeZero();
+
+        __ERC721_init("IdeaNFT", "IDEANFT");
+        __Ownable_init(msg.sender);
+        __ERC721URIStorage_init();
+        __UUPSUpgradeable_init();
+
+        _tokenIds = 1;
+    }
+
+    /**
+     * @notice Mints a new NFT and assigns it to a specified recipient.
+     * @dev Only the contract owner/admin can call this function (and thus pays the gas fee),
+     *      but the NFT ownership (and royalty receiver) is set to the `_recipient` address.
+     * @param _recipient The wallet address that will receive the newly minted NFT (user or company wallet).
      * @param _tokenURI The URI to be associated with the newly minted NFT.
      * @return newItemId The ID of the newly minted NFT.
      */
-    function mintNFT(string memory _tokenURI) public returns (uint256){
-        require(bytes(_tokenURI).length > 0, "Token URI cannot be empty");
+    function mintNFT(address _recipient, string memory _tokenURI) public onlyOwner returns (uint256){
+        if (_recipient == address(0)) revert OwnerAddressCannotBeZero();
+        if (bytes(_tokenURI).length == 0) revert TokenURICannotBeEmpty();
 
         uint256 newItemId = _tokenIds;
 
         NFTInfo[_tokenIds] = NFT({
-            mintedAt: block.timestamp,
-            expiryTime: block.timestamp + 365 days,
-            royaltyReciever: msg.sender
+            mintedAt: uint128(block.timestamp),
+            expiryTime: uint128(block.timestamp + EXPIRY_DURATION),
+            royaltyReciever: _recipient
         });
 
-        _safeMint(msg.sender, newItemId);
+        _safeMint(_recipient, newItemId);
         _setTokenURI(newItemId, _tokenURI);
-        _tokenIds += 1;
+        
+        unchecked {
+            _tokenIds += 1;
+        }
 
-        emit NFTMinted(msg.sender, newItemId, _tokenURI);
+        emit NFTMinted(_recipient, newItemId, _tokenURI);
         return newItemId;
     }
 
@@ -70,37 +113,12 @@ contract IdeaNFT is ERC721, ERC721URIStorage, Ownable{
      * @param _uri The new URI to be set for the NFT.
      */
     function setTokenUri(uint256 _tokenId, string memory _uri) public {
-        require(_tokenId > 0, "Token ID must be greater than zero");
-        require(bytes(_uri).length > 0, "Token URI cannot be empty");
-        require(ownerOf(_tokenId) == msg.sender, "Not owner of token");
-        require(block.timestamp <= NFTInfo[_tokenId].expiryTime, "NFT have expired");
+        if (_tokenId == 0) revert TokenIDMustBeGreaterThanZero();
+        if (bytes(_uri).length == 0) revert TokenURICannotBeEmpty();
+        if (ownerOf(_tokenId) != msg.sender) revert NotOwnerOfToken();
+        if (block.timestamp > uint256(NFTInfo[_tokenId].expiryTime)) revert NFTHaveExpired();
 
         _setTokenURI(_tokenId, _uri);
-    }
-
-    /**
-     * @notice Fetches the token Ids and token uris owned by a given address.
-     * @param _owner The address of the token owner.
-     * @return tokenIds and uris The list of token IDs and uris owned by the address.
-     */
-    function getTokenIdsAndUris(address _owner) public view returns (uint256[] memory, string[] memory) {
-        require(_owner != address(0), "Owner address can't be zero");
-        require(balanceOf(_owner) >=1, "Atleast one token Id required");
-
-        uint256 tokenCount = balanceOf(_owner);
-        uint256[] memory tokenIds = new uint256[](tokenCount);
-        string[] memory uris = new string[](tokenCount);
-        uint256 index = 0;
-
-        for (uint256 tokenId = 1; tokenId < _tokenIds; tokenId++) {
-            if (ownerOf(tokenId) == _owner) {
-                tokenIds[index] = tokenId;
-                uris[index] = tokenURI(tokenId);
-                index++;
-            }
-        }
-
-        return (tokenIds, uris);    
     }
 
     /**
@@ -109,8 +127,8 @@ contract IdeaNFT is ERC721, ERC721URIStorage, Ownable{
      * @return Royalty reciever address.
      */
     function getRoyaltyReciever(uint256 _tokenId) public view returns (address) {
-        require(_tokenId > 0, "Token ID must be greater than zero");
-        require(ownerOf(_tokenId) != address(0), "Owner of this token Id does not exists");
+        if (_tokenId == 0) revert TokenIDMustBeGreaterThanZero();
+        if (ownerOf(_tokenId) == address(0)) revert OwnerOfTokenIdDoesNotExist();
 
         return NFTInfo[_tokenId].royaltyReciever;
     }
@@ -121,10 +139,10 @@ contract IdeaNFT is ERC721, ERC721URIStorage, Ownable{
      * @return NFT expiry time.
      */
     function getNFTExpireTime(uint256 _tokenId) public view returns (uint256) {
-        require(_tokenId > 0, "Token ID must be greater than zero");
-        require(ownerOf(_tokenId) != address(0), "Owner of this token Id does not exists");
+        if (_tokenId == 0) revert TokenIDMustBeGreaterThanZero();
+        if (ownerOf(_tokenId) == address(0)) revert OwnerOfTokenIdDoesNotExist();
 
-        return NFTInfo[_tokenId].expiryTime;
+        return uint256(NFTInfo[_tokenId].expiryTime);
     }
 
     /**
@@ -135,8 +153,10 @@ contract IdeaNFT is ERC721, ERC721URIStorage, Ownable{
      * @param _tokenId The ID of the NFT being transferred.
      * @param _data Extra data to pass with the transfer.
      */
-    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes memory _data) public override(ERC721, IERC721)  {
-        require(block.timestamp <= NFTInfo[_tokenId].expiryTime, "NFT have expired");
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes memory _data) 
+        public override(ERC721Upgradeable, IERC721) 
+    {
+        if (block.timestamp > uint256(NFTInfo[_tokenId].expiryTime)) revert NFTHaveExpired();
         super.safeTransferFrom(_from, _to, _tokenId, _data);
     }
 
@@ -147,8 +167,10 @@ contract IdeaNFT is ERC721, ERC721URIStorage, Ownable{
      * @param _to The address to which the NFT is being transferred.
      * @param _tokenId The ID of the NFT being transferred.
      */
-    function transferFrom(address _from, address _to, uint256 _tokenId) public override(ERC721, IERC721) {
-        require(block.timestamp <= NFTInfo[_tokenId].expiryTime, "NFT have expired");
+    function transferFrom(address _from, address _to, uint256 _tokenId) 
+        public override(ERC721Upgradeable, IERC721) 
+    {
+        if (block.timestamp > uint256(NFTInfo[_tokenId].expiryTime)) revert NFTHaveExpired();
         super.transferFrom(_from, _to, _tokenId);
     }
 
@@ -158,7 +180,8 @@ contract IdeaNFT is ERC721, ERC721URIStorage, Ownable{
      * @param tokenId The identifier for an NFT.
      * @return string memory The token URI.
      */
-    function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory)
+    function tokenURI(uint256 tokenId) 
+        public view override(ERC721Upgradeable, ERC721URIStorageUpgradeable) returns (string memory)
     {
         return super.tokenURI(tokenId);
     }
@@ -169,8 +192,15 @@ contract IdeaNFT is ERC721, ERC721URIStorage, Ownable{
      * @param interfaceId The identifier of the interface to check.
      * @return bool True if the interface is supported, false otherwise.
      */
-    function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721URIStorage) returns (bool)
+    function supportsInterface(bytes4 interfaceId) 
+        public view override(ERC721Upgradeable, ERC721URIStorageUpgradeable) returns (bool)
     {
         return super.supportsInterface(interfaceId);
     }
+
+    /**
+     * @dev Authorizes upgrade of the contract. Only the owner can upgrade.
+     * @param newImplementation Address of the new implementation contract
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }
