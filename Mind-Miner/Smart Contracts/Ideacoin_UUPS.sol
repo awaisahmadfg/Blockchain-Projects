@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.30;
+pragma solidity ^0.8.33;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title MindMiner IdeaCoin (Upgradeable)
- * @dev Implements an ERC20 token for distributing rewards called IdeaCoin and MATIC. 
+ * @dev Implements an ERC20 token for distributing rewards called IdeaCoin, ETH, and USDT.
  * The tokens are initially minted to this contract and distributed based on specific reward criteria to incentivize platform engagement.
  * This contract uses UUPS (Universal Upgradeable Proxy Standard) for upgradeability.
  */
@@ -23,9 +23,7 @@ contract IdeaCoin is
     UUPSUpgradeable 
 {
     using SafeERC20 for IERC20;
-
     // Custom Errors
-    error InvalidMaticAddress();
     error AllIdeaCoinsDistributed();
     error InvalidRecipientAddress();
     error InvalidAmount();
@@ -34,9 +32,10 @@ contract IdeaCoin is
     error MindminerPortionTooLow();
     error MindminerPortionExceedsRemainingSupply();
     error UserHasNoIdeaCoins();
-    error OwnerInsufficientMaticBalance();
+    error InsufficientEthSent();
     error ExceedsMaxSupply();
     error AmountExceedsLimit();
+    error InvalidUsdtTokenAddress();
 
     // Constants
     uint256 public constant MAX_SUPPLY = 21000000 * (10 ** 18);
@@ -45,10 +44,9 @@ contract IdeaCoin is
     
     uint128 public totalRewardsDistributed; 
     uint128 public remainingSupply;
-    IERC20 public MATIC;
 
     event IdeaRewardDistributed(address indexed recipient, uint256 amount);
-    event MaticRewardDistributed(address indexed recipient, uint256 amount);
+    event UsdtRewardDistributed(address indexed recipient, uint256 amount);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -59,19 +57,15 @@ contract IdeaCoin is
      * @notice Initializes the ERC20 token with the name "IdeaCoin" and symbol "IDEA".
      * @dev Initializer function that replaces constructor for upgradeable contracts.
      * Mints all IdeaCoins to this contract and initializes remainingSupply with MAX_SUPPLY.
-     * @param _maticAddress The address of the MATIC token contract
      */
-    function initialize(address _maticAddress) public initializer {
-        if (_maticAddress == address(0)) revert InvalidMaticAddress();
-
+    function initialize() public initializer {
         __ERC20_init("IdeaCoin", "IDEA");
         __Ownable_init(msg.sender);
         __ERC20Burnable_init();
         __UUPSUpgradeable_init();
 
         uint256 maxSupply = MAX_SUPPLY;
-        remainingSupply = uint128(maxSupply);       
-        MATIC = IERC20(_maticAddress);
+        remainingSupply = uint128(maxSupply);
         _mint(address(this), maxSupply);
     }
 
@@ -119,22 +113,23 @@ contract IdeaCoin is
     }
 
     /**
-     * @dev Transfers MATIC from the Owner to the recipient.
-     * @notice User claims MATIC rewards based on their IdeaCoins holding.
+     * @dev Transfers reward token (e.g. USDT) from owner's wallet to the recipient. Owner must approve this contract for the amount first.
+     * @notice Owner distributes USDT rewards to users who hold IdeaCoins. Amount is in token smallest units (e.g. 6 decimals for USDT).
      * @param _to The recipient's address.
-     * @param _amount The amount of MATIC to distribute.
+     * @param _amount The amount to distribute (e.g. 6 decimals for USDT).
+     * @param _rewardToken The ERC20 reward token address (e.g. USDT).
      */
-    function distributeMaticReward(address _to, uint256 _amount) public onlyOwner {
+    function distributeUsdtReward(address _to, uint256 _amount, address _rewardToken) external onlyOwner {
+        if (_rewardToken == address(0)) revert InvalidUsdtTokenAddress();
         if (_to == address(0)) revert InvalidRecipientAddress();
         if (_amount == 0) revert InvalidAmount();
 
         uint256 ideaBalance = balanceOf(_to);
         if (ideaBalance == 0) revert UserHasNoIdeaCoins();
-        if (MATIC.balanceOf(msg.sender) < _amount) revert OwnerInsufficientMaticBalance();
 
-        MATIC.safeTransferFrom(msg.sender, _to, _amount);
+        IERC20(_rewardToken).safeTransferFrom(owner(), _to, _amount);
 
-        emit MaticRewardDistributed(_to, _amount);
+        emit UsdtRewardDistributed(_to, _amount);
     }
 
     /**
