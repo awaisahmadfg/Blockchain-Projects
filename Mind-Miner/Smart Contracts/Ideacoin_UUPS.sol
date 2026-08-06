@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT 
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
@@ -41,7 +41,19 @@ contract IdeaCoin is
     uint256 public constant MAX_SUPPLY = 21000000 * (10 ** 18);
     uint256 public constant MAX_SINGLE_DISTRIBUTION = 1000000 * (10 ** 18);
     address public constant MINDMINER_WALLET = 0xd7b7cafF029f863050A5D9e05B9b2Ce659fdDA92;
-    
+    // TEMP pending client — wallets (reuse MindMiner until dedicated ones confirmed)
+    address public constant LIQUIDITY_TREASURY_WALLET = 0xd7b7cafF029f863050A5D9e05B9b2Ce659fdDA92;
+    address public constant MARKET_WALLET = 0xd7b7cafF029f863050A5D9e05B9b2Ce659fdDA92;
+    address public constant TEAM_WALLET = 0xd7b7cafF029f863050A5D9e05B9b2Ce659fdDA92;
+    // TEMP pending client — supply split 75% / 15% / 5% / 5%
+    uint256 public constant REWARDS_SUPPLY = 15750000 * (10 ** 18);
+    uint256 public constant LIQUIDITY_SUPPLY = 3150000 * (10 ** 18);
+    uint256 public constant MARKET_SUPPLY = 1050000 * (10 ** 18);
+    uint256 public constant TEAM_SUPPLY = 1050000 * (10 ** 18);
+    // TEMP pending client — of liquidity: 50% first Uniswap pool, 50% treasury reserve (off-chain)
+    uint256 public constant INITIAL_POOL_SUPPLY = 1575000 * (10 ** 18);
+    uint256 public constant TREASURY_RESERVE_SUPPLY = 1575000 * (10 ** 18);
+
     uint128 public totalRewardsDistributed; 
     uint128 public remainingSupply;
 
@@ -64,9 +76,11 @@ contract IdeaCoin is
         __ERC20Burnable_init();
         __UUPSUpgradeable_init();
 
-        uint256 maxSupply = MAX_SUPPLY;
-        remainingSupply = uint128(maxSupply);
-        _mint(address(this), maxSupply);
+        remainingSupply = uint128(REWARDS_SUPPLY);
+        _mint(address(this), REWARDS_SUPPLY);
+        _mint(LIQUIDITY_TREASURY_WALLET, LIQUIDITY_SUPPLY);
+        _mint(MARKET_WALLET, MARKET_SUPPLY);
+        _mint(TEAM_WALLET, TEAM_SUPPLY);
     }
 
     /**
@@ -78,7 +92,7 @@ contract IdeaCoin is
     function distributeIdeaReward(address _to, uint256 _amount) public onlyOwner {
         if (_amount > MAX_SINGLE_DISTRIBUTION) revert AmountExceedsLimit();
         
-        uint256 _maxSupply = MAX_SUPPLY;
+        uint256 _maxSupply = REWARDS_SUPPLY;
         uint256 _totalRewardsDistributed = uint256(totalRewardsDistributed);
         
         // Calculate remainingSupply from totalRewardsDistributed for consistency
