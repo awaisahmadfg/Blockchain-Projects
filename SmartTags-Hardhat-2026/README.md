@@ -15,14 +15,15 @@ UUPS upgradeable **ERC-721** property registration for real-estate deed/metadata
 
 ## Tests
 
-Run on local Hardhat network (no `.env` required for tests):
+**16 tests** on Hardhat network (`npm test`). No `.env` required for the test run.
+
+**SmartTags:** UUPS initialization, `registerLand` (mint, sequential IDs, CID rules), `updateProperty` (metadata swap, error paths), `getProperty` / `isCIDUsed` views, registrar access control.
 
 ```shell
 npm install
 npm test
+npm run test:smarttags
 ```
-
-Coverage: initialization, register/update flows, custom errors, access control, CID bookkeeping.
 
 ## Deploy / verify (Polygon)
 
