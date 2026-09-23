@@ -1,0 +1,23 @@
+{
+  "contractName": "PatentMarketplace",
+  "networkName": "sepolia",
+  "chainId": "11155111",
+  "deployer": "0x35e27aCed8B66ee61c5d165f5Ac3B9cE8d66c6C6",
+  "deployerBalanceEth": "8.36437920981134228",
+  "proxyAddress": "0x6A6D8B1bA96C2d8490A2D97f42764d44F071a563",
+  "implementationAddress": "0x2BD847a572a8702a2cf85DEC789685a590707971",
+  "deploymentTxHash": "0x630a9f1638f2a5e25512e896c28870f03d8a3960216b9b41e53eab5e42bfa005",
+  "verification": {
+    "verified": true,
+    "error": null,
+    "attempts": 1
+  },
+  "timestamp": "2026-08-30T19:48:16.413Z",
+  "netConfig": {
+    "usdtAddress": null,
+    "uniswapV2Router": "0xeE567Fe1712Faf6149d80dA1E6934E354124CfE3",
+    "explorer": "https://sepolia.etherscan.io"
+  },
+  "proxyExplorerUrl": "https://sepolia.etherscan.io/address/0x6A6D8B1bA96C2d8490A2D97f42764d44F071a563",
+  "implementationExplorerUrl": "https://sepolia.etherscan.io/address/0x2BD847a572a8702a2cf85DEC789685a590707971"
+}

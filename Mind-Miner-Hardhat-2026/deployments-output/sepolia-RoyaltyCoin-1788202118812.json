@@ -1,0 +1,23 @@
+{
+  "contractName": "RoyaltyCoin",
+  "networkName": "sepolia",
+  "chainId": "11155111",
+  "deployer": "0xB683ffE74275c1404956A7f96685FDDeF90AF9F2",
+  "deployerBalanceEth": "2.0",
+  "proxyAddress": "0xaEbcEA4f3B18a1445eF25e7B22DC11181407b664",
+  "implementationAddress": "0xa22d1cf065D60d8175eAD81FE56122d52724B0e0",
+  "deploymentTxHash": "0x0e7d5483e47b44637a11a7c3bf23f1f529957904684d91618ef86cec307ff2eb",
+  "verification": {
+    "verified": true,
+    "error": null,
+    "attempts": 1
+  },
+  "timestamp": "2026-08-31T18:48:38.812Z",
+  "netConfig": {
+    "usdtAddress": null,
+    "uniswapV2Router": "0xeE567Fe1712Faf6149d80dA1E6934E354124CfE3",
+    "explorer": "https://sepolia.etherscan.io"
+  },
+  "proxyExplorerUrl": "https://sepolia.etherscan.io/address/0xaEbcEA4f3B18a1445eF25e7B22DC11181407b664",
+  "implementationExplorerUrl": "https://sepolia.etherscan.io/address/0xa22d1cf065D60d8175eAD81FE56122d52724B0e0"
+}

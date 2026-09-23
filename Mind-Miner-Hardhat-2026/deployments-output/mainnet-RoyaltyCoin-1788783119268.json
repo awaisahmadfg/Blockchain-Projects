@@ -1,0 +1,23 @@
+{
+  "contractName": "RoyaltyCoin",
+  "networkName": "mainnet",
+  "chainId": "1",
+  "deployer": "0xB683ffE74275c1404956A7f96685FDDeF90AF9F2",
+  "deployerBalanceEth": "0.81",
+  "proxyAddress": "0xaEbcEA4f3B18a1445eF25e7B22DC11181407b664",
+  "implementationAddress": "0xa22d1cf065D60d8175eAD81FE56122d52724B0e0",
+  "deploymentTxHash": "0x21215f1e345f5570d2e868098d122d3df8005a0ddb80af2564facabb1eb5cc8f",
+  "verification": {
+    "verified": true,
+    "error": null,
+    "attempts": 1
+  },
+  "timestamp": "2026-09-07T12:11:59.268Z",
+  "netConfig": {
+    "usdtAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    "uniswapV2Router": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+    "explorer": "https://etherscan.io"
+  },
+  "proxyExplorerUrl": "https://etherscan.io/address/0xaEbcEA4f3B18a1445eF25e7B22DC11181407b664",
+  "implementationExplorerUrl": "https://etherscan.io/address/0xa22d1cf065D60d8175eAD81FE56122d52724B0e0"
+}

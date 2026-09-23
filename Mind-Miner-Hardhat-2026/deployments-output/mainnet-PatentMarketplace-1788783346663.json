@@ -1,0 +1,23 @@
+{
+  "contractName": "PatentMarketplace",
+  "networkName": "mainnet",
+  "chainId": "1",
+  "deployer": "0xB683ffE74275c1404956A7f96685FDDeF90AF9F2",
+  "deployerBalanceEth": "0.809658604431502417",
+  "proxyAddress": "0x62Ee2114374FA5980a90543b32797078742f0C2c",
+  "implementationAddress": "0x90fEB13F4BA37468974a963229C3529A7DD7De40",
+  "deploymentTxHash": "0x1dbbf2ef4e693761245c40a2b1e3773e5e4ad454f52a568682c5bc2668667686",
+  "verification": {
+    "verified": true,
+    "error": null,
+    "attempts": 1
+  },
+  "timestamp": "2026-09-07T12:15:46.662Z",
+  "netConfig": {
+    "usdtAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    "uniswapV2Router": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+    "explorer": "https://etherscan.io"
+  },
+  "proxyExplorerUrl": "https://etherscan.io/address/0x62Ee2114374FA5980a90543b32797078742f0C2c",
+  "implementationExplorerUrl": "https://etherscan.io/address/0x90fEB13F4BA37468974a963229C3529A7DD7De40"
+}

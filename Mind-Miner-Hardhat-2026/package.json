@@ -1,0 +1,26 @@
+{
+  "name": "mind-miner",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "hardhat test --network hardhat",
+    "test:royalty": "hardhat test test/RoyaltyCoin.test.js --network hardhat",
+    "test:marketplace": "hardhat test test/PatentMarketplace.test.js --network hardhat"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.2",
+    "@openzeppelin/contracts-upgradeable": "^5.0.2",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.8",
+    "@openzeppelin/hardhat-upgrades": "^3.0.0",
+    "ethers": "^6.14.0",
+    "hardhat": "^2.22.5",
+    "@nomicfoundation/hardhat-ethers": "^3.1.2"
+  }
+}

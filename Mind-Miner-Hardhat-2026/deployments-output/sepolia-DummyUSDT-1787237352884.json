@@ -1,0 +1,11 @@
+{
+  "contractName": "DummyUSDT",
+  "networkName": "sepolia",
+  "chainId": "11155111",
+  "address": "0xcce9800199Da210CB02034e5c47Ddb5b6d5BE113",
+  "deployer": "0x35e27aCed8B66ee61c5d165f5Ac3B9cE8d66c6C6",
+  "verified": false,
+  "timestamp": "2026-08-20T14:49:12.884Z",
+  "explorerUrl": "https://sepolia.etherscan.io/address/0xcce9800199Da210CB02034e5c47Ddb5b6d5BE113",
+  "envHint": "Add to .env: SEPOLIA_USDT_ADDRESS=0xcce9800199Da210CB02034e5c47Ddb5b6d5BE113"
+}

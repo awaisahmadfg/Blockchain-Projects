@@ -1,0 +1,17 @@
+{
+  "contractName": "DummyWETH",
+  "networkName": "sepolia",
+  "chainId": "11155111",
+  "address": "0x570dF54438a9E03bAFdE84850dE2FD304c52544D",
+  "deployer": "0x35e27aCed8B66ee61c5d165f5Ac3B9cE8d66c6C6",
+  "verified": true,
+  "verification": {
+    "verified": true,
+    "error": null,
+    "attempts": 3,
+    "note": "confirmed-via-etherscan-api"
+  },
+  "timestamp": "2026-08-26T12:24:24.418Z",
+  "explorerUrl": "https://sepolia.etherscan.io/address/0x570dF54438a9E03bAFdE84850dE2FD304c52544D",
+  "envHint": "Add to .env: SEPOLIA_WETH_ADDRESS=0x570dF54438a9E03bAFdE84850dE2FD304c52544D"
+}

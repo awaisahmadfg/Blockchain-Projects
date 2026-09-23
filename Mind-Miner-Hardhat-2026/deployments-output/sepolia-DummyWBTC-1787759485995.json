@@ -1,0 +1,17 @@
+{
+  "contractName": "DummyWBTC",
+  "networkName": "sepolia",
+  "chainId": "11155111",
+  "address": "0x6F71D1EF5D86295cEEd81749ff69f3Ed943ed207",
+  "deployer": "0x35e27aCed8B66ee61c5d165f5Ac3B9cE8d66c6C6",
+  "verified": true,
+  "verification": {
+    "verified": true,
+    "error": null,
+    "attempts": 3,
+    "note": "confirmed-via-etherscan-api"
+  },
+  "timestamp": "2026-08-26T15:51:25.995Z",
+  "explorerUrl": "https://sepolia.etherscan.io/address/0x6F71D1EF5D86295cEEd81749ff69f3Ed943ed207",
+  "envHint": "Add to .env: SEPOLIA_WBTC_ADDRESS=0x6F71D1EF5D86295cEEd81749ff69f3Ed943ed207"
+}
