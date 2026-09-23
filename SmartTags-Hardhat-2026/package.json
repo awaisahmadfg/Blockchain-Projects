@@ -1,0 +1,25 @@
+{
+  "name": "smarttags-hardhat",
+  "version": "1.0.0",
+  "description": "UUPS SmartTags (ERC-721) — Polygon production + Hardhat tests",
+  "main": "index.js",
+  "scripts": {
+    "test": "hardhat test --network hardhat",
+    "test:smarttags": "hardhat test test/SmartTags.test.js --network hardhat"
+  },
+  "author": "Awais Ahmad",
+  "license": "ISC",
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.6",
+    "@openzeppelin/contracts-upgradeable": "^4.9.6",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.8",
+    "@openzeppelin/hardhat-upgrades": "^3.0.0",
+    "@nomicfoundation/hardhat-ethers": "^3.1.2",
+    "ethers": "^6.14.0",
+    "hardhat": "^2.22.5"
+  }
+}
