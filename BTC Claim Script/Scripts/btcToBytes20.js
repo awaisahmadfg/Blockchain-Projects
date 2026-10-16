@@ -1,4 +1,3 @@
-// Encoding and decoding and File system-related library
 const bs58 = require('bs58');
 const fs = require('fs');
 
